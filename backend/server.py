@@ -533,7 +533,88 @@ def get_hierarchy_options():
         "lineups": sorted(combined_data['Lineup'].dropna().unique().tolist())
     }
     
-    return options
+@app.get("/api/forecast/accuracy")
+def get_forecast_accuracy():
+    """Get forecast accuracy metrics for accuracy dashboard"""
+    global combined_data
+    
+    if combined_data is None:
+        raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
+    
+    # Filter for forecast data only
+    forecast_data = combined_data[combined_data['Forecast'].notna()].copy()
+    
+    accuracy_summary = []
+    lineups = forecast_data['Lineup'].unique()
+    
+    for lineup in lineups:
+        lineup_forecasts = forecast_data[forecast_data['Lineup'] == lineup]
+        
+        if len(lineup_forecasts) > 0:
+            sample_row = lineup_forecasts.iloc[0]
+            
+            accuracy_info = {
+                'lineup': lineup,
+                'profile': sample_row['Profile'],
+                'site': sample_row['Site'],
+                'model_type': sample_row['Model_Type'],
+                'risk_level': sample_row['Risk_Level'],
+                'rmse': float(sample_row['RMSE']) if pd.notna(sample_row['RMSE']) else None,
+                'mape': float(sample_row['MAPE']) if pd.notna(sample_row['MAPE']) else None,
+                'forecast_count': len(lineup_forecasts),
+                'avg_forecast': float(lineup_forecasts['Forecast'].mean()),
+                'confidence_range': {
+                    'avg_lower': float(lineup_forecasts['Forecast_Lower'].mean()) if 'Forecast_Lower' in lineup_forecasts.columns else None,
+                    'avg_upper': float(lineup_forecasts['Forecast_Upper'].mean()) if 'Forecast_Upper' in lineup_forecasts.columns else None
+                }
+            }
+            accuracy_summary.append(accuracy_info)
+    
+    # Overall statistics
+    overall_stats = {
+        'total_lineups': len(accuracy_summary),
+        'risk_distribution': {
+            'low': len([x for x in accuracy_summary if x['risk_level'] == 'low']),
+            'medium': len([x for x in accuracy_summary if x['risk_level'] == 'medium']),
+            'high': len([x for x in accuracy_summary if x['risk_level'] == 'high'])
+        },
+        'model_distribution': {
+            'exponential_smoothing': len([x for x in accuracy_summary if x['model_type'] == 'exponential_smoothing']),
+            'arima': len([x for x in accuracy_summary if x['model_type'] == 'arima']),
+            'simple_mean': len([x for x in accuracy_summary if x['model_type'] == 'simple_mean'])
+        },
+        'avg_mape': np.mean([x['mape'] for x in accuracy_summary if x['mape'] is not None]) if any(x['mape'] is not None for x in accuracy_summary) else None,
+        'avg_rmse': np.mean([x['rmse'] for x in accuracy_summary if x['rmse'] is not None]) if any(x['rmse'] is not None for x in accuracy_summary) else None
+    }
+    
+    return {
+        'lineup_accuracy': accuracy_summary,
+        'overall_statistics': overall_stats
+    }
+
+@app.get("/api/data/multi-lineup")
+def get_multi_lineup_data(lineups: str):
+    """Get data for multiple lineups for comparison"""
+    global combined_data
+    
+    if combined_data is None:
+        raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
+    
+    lineup_list = [l.strip() for l in lineups.split(',')]
+    filtered_data = combined_data[combined_data['Lineup'].isin(lineup_list)].copy()
+    
+    if len(filtered_data) == 0:
+        raise HTTPException(status_code=404, detail=f"No data found for lineups: {lineups}")
+    
+    # Convert to JSON-serializable format
+    filtered_data['DATE'] = filtered_data['DATE'].dt.strftime('%Y-%m-%d')
+    filtered_data = filtered_data.replace({np.nan: None})
+    
+    return {
+        "lineups": lineup_list,
+        "data": filtered_data.to_dict('records'),
+        "total_rows": len(filtered_data)
+    }
 
 @app.get("/api/export/csv")
 def export_combined_csv():
