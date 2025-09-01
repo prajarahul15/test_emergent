@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class ForecastingAPITester:
-    def __init__(self, base_url="http://localhost:8001"):
+    def __init__(self, base_url="https://805b056d-d979-4878-b784-e89e50fd864c.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
