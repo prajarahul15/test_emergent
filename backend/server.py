@@ -326,6 +326,8 @@ def generate_forecasts():
                         'Forecast_Upper': upper_bound,
                         'Model_Type': model_info['model_type'],
                         'Risk_Level': model_info['risk_level'],
+                        'RMSE': model_info['accuracy_metrics'].get('rmse', np.nan),
+                        'MAPE': model_info['accuracy_metrics'].get('mape', np.nan),
                         'Synthetic_Actual': synthetic_actual
                     }
                     forecast_results.append(forecast_row)
