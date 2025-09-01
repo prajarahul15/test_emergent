@@ -334,7 +334,7 @@ def generate_forecasts():
                 print(f"Generated {len(forecasts)} forecasts and {len(synthetic_actuals)} synthetic actuals for lineup: {lineup}")
                 
                 # Create forecast data for each month of 2025
-                for i, (forecast_value, synthetic_actual) in enumerate(zip(forecasts, synthetic_actuals)):
+                for i, (forecast_value, synthetic_actual, lower_bound, upper_bound) in enumerate(zip(forecasts, synthetic_actuals, lower_bounds, upper_bounds)):
                     forecast_date = datetime(2025, i+1, 1)
                     
                     # Create forecast row
@@ -351,6 +351,10 @@ def generate_forecasts():
                         'Actual': np.nan,
                         'Plan': np.nan,
                         'Forecast': forecast_value,
+                        'Forecast_Lower': lower_bound,
+                        'Forecast_Upper': upper_bound,
+                        'Model_Type': model_info['model_type'],
+                        'Risk_Level': model_info['risk_level'],
                         'Synthetic_Actual': synthetic_actual
                     }
                     forecast_results.append(forecast_row)
