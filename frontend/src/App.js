@@ -744,7 +744,7 @@ function App() {
   };
 
   const renderHierarchyFilters = () => {
-    if (!hierarchyOptions.profiles) return null;
+    if (!hierarchyOptions || !hierarchyOptions.profiles) return null;
 
     return (
       <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
@@ -762,7 +762,7 @@ function App() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">All Profiles</option>
-              {hierarchyOptions.profiles.map(option => (
+              {(hierarchyOptions.profiles || []).map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
@@ -776,7 +776,7 @@ function App() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">All Line Items</option>
-              {hierarchyOptions.line_items.map(option => (
+              {(hierarchyOptions.line_items || []).map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
@@ -790,7 +790,7 @@ function App() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">All Bodies</option>
-              {hierarchyOptions.bodies.map(option => (
+              {(hierarchyOptions.bodies || []).map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
@@ -804,7 +804,7 @@ function App() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">All Sites</option>
-              {hierarchyOptions.sites.map(option => (
+              {(hierarchyOptions.sites || []).map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
@@ -818,7 +818,7 @@ function App() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">All Lineups</option>
-              {hierarchyOptions.lineups.map(option => (
+              {(hierarchyOptions.lineups || []).map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
