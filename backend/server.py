@@ -405,6 +405,23 @@ def get_hierarchy_options():
     
     return options
 
+@app.get("/api/export/csv")
+def export_combined_csv():
+    """Export combined data as CSV"""
+    global combined_data
+    
+    if combined_data is None:
+        raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
+    
+    # Create temporary file
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as tmp_file:
+        combined_data.to_csv(tmp_file.name, index=False)
+        return FileResponse(
+            tmp_file.name,
+            media_type='text/csv',
+            filename='forecasting_results.csv'
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
