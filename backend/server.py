@@ -116,35 +116,6 @@ def get_hierarchy():
     
     return hierarchy
 
-def generate_forecast_for_lineup(data: pd.DataFrame, lineup: str, periods: int = 12) -> List[float]:
-    """Generate forecast for a specific lineup using exponential smoothing"""
-    lineup_data = data[data['Lineup'] == lineup].copy()
-    lineup_data = lineup_data.sort_values('DATE')
-    
-    if len(lineup_data) < 3:
-        # If not enough data, use simple mean
-        mean_value = lineup_data['Actual'].mean()
-        return [float(mean_value)] * periods
-    
-    try:
-        # Use ETS (Exponential Smoothing) model
-        model = ETSModel(lineup_data['Actual'].values, trend='add', seasonal=None)
-        fitted_model = model.fit()
-        forecast = fitted_model.forecast(periods)
-        return [max(0, float(x)) for x in forecast]  # Ensure non-negative values
-    except:
-        try:
-            # Fallback to ARIMA
-            model = ARIMA(lineup_data['Actual'].values, order=(1,1,1))
-            fitted_model = model.fit()
-            forecast = fitted_model.forecast(steps=periods)
-            return [max(0, float(x)) for x in forecast]
-        except:
-            # Final fallback to simple moving average
-            window = min(3, len(lineup_data))
-            mean_value = lineup_data['Actual'].tail(window).mean()
-            return [float(mean_value)] * periods
-
 def generate_forecast_with_confidence(data: pd.DataFrame, lineup: str, periods: int = 12) -> Tuple[List[float], List[float], List[float], Dict]:
     """Generate forecast with confidence intervals and accuracy metrics"""
     lineup_data = data[data['Lineup'] == lineup].copy()
