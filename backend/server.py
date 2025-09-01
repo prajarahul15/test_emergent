@@ -350,6 +350,8 @@ def generate_forecasts():
         sample_with_cols['Forecast_Upper'] = np.nan
         sample_with_cols['Model_Type'] = np.nan
         sample_with_cols['Risk_Level'] = np.nan
+        sample_with_cols['RMSE'] = np.nan
+        sample_with_cols['MAPE'] = np.nan
         sample_with_cols['Synthetic_Actual'] = np.nan
         
         # Prepare plan data with additional columns  
@@ -360,6 +362,8 @@ def generate_forecasts():
         plan_with_cols['Forecast_Upper'] = np.nan
         plan_with_cols['Model_Type'] = np.nan
         plan_with_cols['Risk_Level'] = np.nan
+        plan_with_cols['RMSE'] = np.nan
+        plan_with_cols['MAPE'] = np.nan
         plan_with_cols['Synthetic_Actual'] = np.nan
         # Make sure plan data has the right column name
         if 'Plan' not in plan_with_cols.columns:
