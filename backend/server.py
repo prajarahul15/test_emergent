@@ -145,6 +145,142 @@ def generate_forecast_for_lineup(data: pd.DataFrame, lineup: str, periods: int =
             mean_value = lineup_data['Actual'].tail(window).mean()
             return [float(mean_value)] * periods
 
+def generate_forecast_with_confidence(data: pd.DataFrame, lineup: str, periods: int = 12) -> Tuple[List[float], List[float], List[float], Dict]:
+    """Generate forecast with confidence intervals and accuracy metrics"""
+    lineup_data = data[data['Lineup'] == lineup].copy()
+    lineup_data = lineup_data.sort_values('DATE')
+    
+    if len(lineup_data) < 6:
+        # If not enough data, use simple mean with basic confidence
+        mean_value = lineup_data['Actual'].mean()
+        std_value = lineup_data['Actual'].std() if len(lineup_data) > 1 else mean_value * 0.1
+        
+        forecasts = [float(mean_value)] * periods
+        lower_bounds = [max(0, float(mean_value - 1.96 * std_value))] * periods
+        upper_bounds = [float(mean_value + 1.96 * std_value)] * periods
+        
+        return forecasts, lower_bounds, upper_bounds, {
+            'model_type': 'simple_mean',
+            'accuracy_metrics': {'rmse': std_value, 'mape': 0.1},
+            'risk_level': 'high'
+        }
+    
+    # Split data for training and testing (80-20 split)
+    split_point = int(len(lineup_data) * 0.8)
+    train_data = lineup_data.iloc[:split_point]
+    test_data = lineup_data.iloc[split_point:]
+    
+    # Model fitting and accuracy calculation
+    accuracy_metrics = {}
+    risk_level = 'medium'
+    model_type = 'exponential_smoothing'
+    
+    try:
+        # Use ETS (Exponential Smoothing) model
+        model = ETSModel(train_data['Actual'].values, trend='add', seasonal=None)
+        fitted_model = model.fit()
+        
+        # Generate test forecasts for accuracy calculation
+        if len(test_data) > 0:
+            test_forecast = fitted_model.forecast(len(test_data))
+            test_actual = test_data['Actual'].values
+            
+            # Calculate accuracy metrics
+            rmse = np.sqrt(mean_squared_error(test_actual, test_forecast))
+            mape = mean_absolute_percentage_error(test_actual, test_forecast)
+            
+            accuracy_metrics = {
+                'rmse': float(rmse),
+                'mape': float(mape),
+                'test_points': len(test_data)
+            }
+            
+            # Determine risk level based on MAPE
+            if mape < 0.1:  # Less than 10%
+                risk_level = 'low'
+            elif mape < 0.2:  # Less than 20%
+                risk_level = 'medium'
+            else:
+                risk_level = 'high'
+        
+        # Generate actual forecasts
+        full_model = ETSModel(lineup_data['Actual'].values, trend='add', seasonal=None)
+        full_fitted = full_model.fit()
+        forecasts = full_fitted.forecast(periods)
+        
+        # Generate confidence intervals (approximate)
+        forecast_errors = fitted_model.resid if hasattr(fitted_model, 'resid') else np.array([0])
+        std_error = np.std(forecast_errors) if len(forecast_errors) > 1 else np.std(lineup_data['Actual']) * 0.1
+        
+        forecasts_clean = [max(0, float(f)) for f in forecasts]
+        lower_bounds = [max(0, float(f - 1.96 * std_error)) for f in forecasts]
+        upper_bounds = [float(f + 1.96 * std_error) for f in forecasts]
+        
+        return forecasts_clean, lower_bounds, upper_bounds, {
+            'model_type': model_type,
+            'accuracy_metrics': accuracy_metrics,
+            'risk_level': risk_level
+        }
+        
+    except Exception as e:
+        print(f"ETS model failed for {lineup}, trying ARIMA: {e}")
+        
+        try:
+            # Fallback to ARIMA
+            model = ARIMA(train_data['Actual'].values, order=(1,1,1))
+            fitted_model = model.fit()
+            model_type = 'arima'
+            
+            # Test accuracy if test data available
+            if len(test_data) > 0:
+                test_forecast = fitted_model.forecast(steps=len(test_data))
+                test_actual = test_data['Actual'].values
+                
+                rmse = np.sqrt(mean_squared_error(test_actual, test_forecast))
+                mape = mean_absolute_percentage_error(test_actual, test_forecast)
+                
+                accuracy_metrics = {
+                    'rmse': float(rmse),
+                    'mape': float(mape),
+                    'test_points': len(test_data)
+                }
+                
+                risk_level = 'low' if mape < 0.1 else 'medium' if mape < 0.2 else 'high'
+            
+            # Generate forecasts
+            full_model = ARIMA(lineup_data['Actual'].values, order=(1,1,1))
+            full_fitted = full_model.fit()
+            forecasts = full_fitted.forecast(steps=periods)
+            
+            # Confidence intervals
+            std_error = np.std(lineup_data['Actual']) * 0.15
+            forecasts_clean = [max(0, float(f)) for f in forecasts]
+            lower_bounds = [max(0, float(f - 1.96 * std_error)) for f in forecasts]
+            upper_bounds = [float(f + 1.96 * std_error) for f in forecasts]
+            
+            return forecasts_clean, lower_bounds, upper_bounds, {
+                'model_type': model_type,
+                'accuracy_metrics': accuracy_metrics,
+                'risk_level': risk_level
+            }
+            
+        except Exception as e2:
+            print(f"ARIMA also failed for {lineup}, using simple average: {e2}")
+            
+            # Final fallback
+            mean_value = lineup_data['Actual'].mean()
+            std_value = lineup_data['Actual'].std()
+            
+            forecasts = [float(mean_value)] * periods
+            lower_bounds = [max(0, float(mean_value - 1.96 * std_value))] * periods
+            upper_bounds = [float(mean_value + 1.96 * std_value)] * periods
+            
+            return forecasts, lower_bounds, upper_bounds, {
+                'model_type': 'simple_mean',
+                'accuracy_metrics': {'rmse': float(std_value), 'mape': 0.2},
+                'risk_level': 'high'
+            }
+
 def generate_seasonal_actuals_for_lineup(data: pd.DataFrame, lineup: str) -> List[float]:
     """Generate seasonal actuals for 2025 based on historical monthly averages"""
     lineup_data = data[data['Lineup'] == lineup].copy()
