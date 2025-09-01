@@ -416,10 +416,10 @@ class ForecastingAPITester:
 
 def main():
     # Setup
-    tester = ForecastingAPITester("http://localhost:8001")
+    tester = ForecastingAPITester("https://805b056d-d979-4878-b784-e89e50fd864c.preview.emergentagent.com")
     
-    print("🚀 Starting Forecasting API Tests")
-    print("=" * 50)
+    print("🚀 Starting Enhanced Forecasting API Tests")
+    print("=" * 60)
 
     # Test 1: Health Check
     if not tester.test_health_check():
@@ -437,7 +437,7 @@ def main():
     if not hierarchy_success:
         print("❌ Hierarchy test failed")
 
-    # Test 4: Generate Forecasts
+    # Test 4: Generate Forecasts (This creates synthetic actuals)
     forecast_success, forecast_data = tester.test_generate_forecasts()
     if not forecast_success:
         print("❌ Forecast generation failed")
@@ -446,7 +446,28 @@ def main():
     # Test 5: Combined Data (after forecast generation)
     combined_success, combined_data = tester.test_combined_data()
 
-    # Test 6: Lineup Data (get first available lineup)
+    # Test 6: NEW - Hierarchy Options for filter dropdowns
+    hierarchy_options_success, hierarchy_options_data = tester.test_hierarchy_options()
+
+    # Test 7: NEW - Yearly Summary for visualization
+    yearly_summary_success, yearly_summary_data = tester.test_yearly_summary()
+
+    # Test 8: NEW - Filtered Data (no params)
+    filtered_data_success, filtered_data_response = tester.test_filtered_data()
+
+    # Test 9: NEW - Filtered Data with specific parameters
+    if hierarchy_options_success and hierarchy_options_data:
+        # Test with first available options
+        profiles = hierarchy_options_data.get('profiles', [])
+        lineups = hierarchy_options_data.get('lineups', [])
+        
+        if profiles:
+            profile_filter_success, _ = tester.test_filtered_data_with_params(profile=profiles[0])
+        
+        if lineups:
+            lineup_filter_success, _ = tester.test_filtered_data_with_params(lineup=lineups[0])
+
+    # Test 10: Lineup Data (get first available lineup)
     lineup_name = None
     if hierarchy_success and hierarchy_data:
         # Extract first lineup from hierarchy
@@ -466,18 +487,37 @@ def main():
     else:
         print("⚠️  No lineup found for testing")
 
-    # Test 7: CSV Export
+    # Test 11: Synthetic Actuals Validation
+    if combined_success and combined_data:
+        synthetic_validation = tester.test_synthetic_actuals_validation(combined_data)
+
+    # Test 12: CSV Export (should include Synthetic_Actual column)
     csv_success = tester.test_csv_export()
 
     # Print results
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
+    # Summary of key features tested
+    print("\n🔍 Key Features Tested:")
+    print(f"   ✅ Health Check: {'✅' if tester.test_health_check else '❌'}")
+    print(f"   ✅ Data Summary: {'✅' if summary_success else '❌'}")
+    print(f"   ✅ Hierarchy Structure: {'✅' if hierarchy_success else '❌'}")
+    print(f"   ✅ Forecast Generation: {'✅' if forecast_success else '❌'}")
+    print(f"   ✅ Combined Data: {'✅' if combined_success else '❌'}")
+    print(f"   🆕 Hierarchy Options (NEW): {'✅' if hierarchy_options_success else '❌'}")
+    print(f"   🆕 Yearly Summary (NEW): {'✅' if yearly_summary_success else '❌'}")
+    print(f"   🆕 Filtered Data (NEW): {'✅' if filtered_data_success else '❌'}")
+    print(f"   ✅ Lineup Data: {'✅' if lineup_name and lineup_success else '❌'}")
+    print(f"   ✅ CSV Export with Synthetic_Actual: {'✅' if csv_success else '❌'}")
+    
     if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed!")
+        print("\n🎉 All API tests passed!")
+        print("✅ Backend is ready for frontend testing")
         return 0
     else:
-        print("⚠️  Some tests failed")
+        print(f"\n⚠️  {tester.tests_run - tester.tests_passed} tests failed")
+        print("❌ Fix backend issues before proceeding to frontend testing")
         return 1
 
 if __name__ == "__main__":
