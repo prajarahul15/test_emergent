@@ -328,7 +328,7 @@ def generate_forecasts():
                     continue
                     
                 lineup_sample = lineup_rows.iloc[0]
-                forecasts = generate_forecast_for_lineup(sample_data, lineup, 12)
+                forecasts, lower_bounds, upper_bounds, model_info = generate_forecast_with_confidence(sample_data, lineup, 12)
                 synthetic_actuals = generate_seasonal_actuals_for_lineup(sample_data, lineup)
                 
                 print(f"Generated {len(forecasts)} forecasts and {len(synthetic_actuals)} synthetic actuals for lineup: {lineup}")
