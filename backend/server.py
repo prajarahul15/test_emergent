@@ -142,6 +142,25 @@ def generate_forecast_for_lineup(data: pd.DataFrame, lineup: str, periods: int =
             mean_value = lineup_data['Actual'].tail(window).mean()
             return [float(mean_value)] * periods
 
+def generate_seasonal_actuals_for_lineup(data: pd.DataFrame, lineup: str) -> List[float]:
+    """Generate seasonal actuals for 2025 based on historical monthly averages"""
+    lineup_data = data[data['Lineup'] == lineup].copy()
+    lineup_data = lineup_data.sort_values('DATE')
+    lineup_data['Month'] = lineup_data['DATE'].dt.month
+    
+    # Calculate monthly averages from historical data
+    monthly_averages = {}
+    for month in range(1, 13):
+        month_data = lineup_data[lineup_data['Month'] == month]['Actual']
+        if len(month_data) > 0:
+            monthly_averages[month] = float(month_data.mean())
+        else:
+            # If no data for this month, use overall average
+            monthly_averages[month] = float(lineup_data['Actual'].mean())
+    
+    # Return 12 months of seasonal actuals
+    return [monthly_averages[month] for month in range(1, 13)]
+
 @app.post("/api/forecast/generate")
 def generate_forecasts():
     """Generate forecasts for all lineups"""
