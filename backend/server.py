@@ -373,12 +373,20 @@ def generate_forecasts():
         sample_with_cols = sample_data.copy()
         sample_with_cols['Plan'] = np.nan
         sample_with_cols['Forecast'] = np.nan
+        sample_with_cols['Forecast_Lower'] = np.nan
+        sample_with_cols['Forecast_Upper'] = np.nan
+        sample_with_cols['Model_Type'] = np.nan
+        sample_with_cols['Risk_Level'] = np.nan
         sample_with_cols['Synthetic_Actual'] = np.nan
         
         # Prepare plan data with additional columns  
         plan_with_cols = plan_data.copy()
         plan_with_cols['Actual'] = np.nan
         plan_with_cols['Forecast'] = np.nan
+        plan_with_cols['Forecast_Lower'] = np.nan
+        plan_with_cols['Forecast_Upper'] = np.nan
+        plan_with_cols['Model_Type'] = np.nan
+        plan_with_cols['Risk_Level'] = np.nan
         plan_with_cols['Synthetic_Actual'] = np.nan
         # Make sure plan data has the right column name
         if 'Plan' not in plan_with_cols.columns:
