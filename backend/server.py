@@ -163,7 +163,7 @@ def generate_seasonal_actuals_for_lineup(data: pd.DataFrame, lineup: str) -> Lis
 
 @app.post("/api/forecast/generate")
 def generate_forecasts():
-    """Generate forecasts for all lineups"""
+    """Generate forecasts and synthetic actuals for all lineups"""
     global sample_data, plan_data, combined_data
     
     if sample_data is None:
@@ -176,8 +176,9 @@ def generate_forecasts():
         
         print(f"Processing forecasts for {len(lineups)} lineups: {lineups}")
         
-        # Generate forecasts for each lineup
+        # Generate forecasts and synthetic actuals for each lineup
         forecast_results = []
+        synthetic_actual_results = []
         
         for lineup in lineups:
             try:
@@ -189,13 +190,15 @@ def generate_forecasts():
                     
                 lineup_sample = lineup_rows.iloc[0]
                 forecasts = generate_forecast_for_lineup(sample_data, lineup, 12)
+                synthetic_actuals = generate_seasonal_actuals_for_lineup(sample_data, lineup)
                 
-                print(f"Generated {len(forecasts)} forecasts for lineup: {lineup}")
+                print(f"Generated {len(forecasts)} forecasts and {len(synthetic_actuals)} synthetic actuals for lineup: {lineup}")
                 
                 # Create forecast data for each month of 2025
-                for i, forecast_value in enumerate(forecasts):
+                for i, (forecast_value, synthetic_actual) in enumerate(zip(forecasts, synthetic_actuals)):
                     forecast_date = datetime(2025, i+1, 1)
                     
+                    # Create forecast row
                     forecast_row = {
                         'Profile': lineup_sample['Profile'],
                         'Line_Item': lineup_sample['Line_Item'],
@@ -208,9 +211,11 @@ def generate_forecasts():
                         'DATE': forecast_date,
                         'Actual': np.nan,
                         'Plan': np.nan,
-                        'Forecast': forecast_value
+                        'Forecast': forecast_value,
+                        'Synthetic_Actual': synthetic_actual
                     }
                     forecast_results.append(forecast_row)
+                    
             except Exception as e:
                 print(f"Error processing lineup {lineup}: {e}")
                 continue
@@ -225,11 +230,13 @@ def generate_forecasts():
         sample_with_cols = sample_data.copy()
         sample_with_cols['Plan'] = np.nan
         sample_with_cols['Forecast'] = np.nan
+        sample_with_cols['Synthetic_Actual'] = np.nan
         
         # Prepare plan data with additional columns  
         plan_with_cols = plan_data.copy()
         plan_with_cols['Actual'] = np.nan
         plan_with_cols['Forecast'] = np.nan
+        plan_with_cols['Synthetic_Actual'] = np.nan
         # Make sure plan data has the right column name
         if 'Plan' not in plan_with_cols.columns:
             plan_with_cols['Plan'] = plan_with_cols.get('Plan', np.nan)
@@ -239,10 +246,11 @@ def generate_forecasts():
         combined_data = combined_data.sort_values(['Lineup', 'DATE']).reset_index(drop=True)
         
         return {
-            "message": "Forecasts generated successfully",
+            "message": "Forecasts and synthetic actuals generated successfully",
             "total_forecast_points": len(forecast_df),
             "unique_lineups": len(lineups),
-            "forecast_period": "2025 (12 months)"
+            "forecast_period": "2025 (12 months)",
+            "synthetic_actuals_generated": True
         }
         
     except Exception as e:
