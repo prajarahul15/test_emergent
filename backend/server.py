@@ -35,11 +35,15 @@ def load_default_data():
         sample_data = pd.read_csv('/app/Sample_data_N.csv')
         plan_data = pd.read_csv('/app/Plan Number.csv')
         
+        # Remove empty rows
+        sample_data = sample_data.dropna(subset=['Profile', 'Lineup', 'DATE', 'Actual'])
+        plan_data = plan_data.dropna(subset=['Profile', 'Lineup', 'DATE', 'Plan'])
+        
         # Convert DATE column to datetime
         sample_data['DATE'] = pd.to_datetime(sample_data['DATE'], format='%d-%m-%Y')
         plan_data['DATE'] = pd.to_datetime(plan_data['DATE'], format='%d-%m-%Y')
         
-        print("Default data loaded successfully")
+        print(f"Default data loaded successfully - Sample: {len(sample_data)} rows, Plan: {len(plan_data)} rows")
     except Exception as e:
         print(f"Error loading default data: {e}")
 
