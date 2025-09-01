@@ -151,35 +151,53 @@ def generate_forecasts():
         raise HTTPException(status_code=404, detail="Sample data not loaded")
     
     try:
-        # Get unique lineups
+        # Get unique lineups from sample data
         lineups = sample_data['Lineup'].unique()
+        lineups = [lineup for lineup in lineups if pd.notna(lineup)]  # Remove NaN values
+        
+        print(f"Processing forecasts for {len(lineups)} lineups: {lineups}")
         
         # Generate forecasts for each lineup
         forecast_results = []
         
         for lineup in lineups:
-            lineup_sample = sample_data[sample_data['Lineup'] == lineup].iloc[0]
-            forecasts = generate_forecast_for_lineup(sample_data, lineup, 12)
-            
-            # Create forecast data for each month of 2025
-            for i, forecast_value in enumerate(forecasts):
-                forecast_date = datetime(2025, i+1, 1)
+            try:
+                # Get lineup sample data for metadata
+                lineup_rows = sample_data[sample_data['Lineup'] == lineup]
+                if len(lineup_rows) == 0:
+                    print(f"No data found for lineup: {lineup}")
+                    continue
+                    
+                lineup_sample = lineup_rows.iloc[0]
+                forecasts = generate_forecast_for_lineup(sample_data, lineup, 12)
                 
-                forecast_row = {
-                    'Profile': lineup_sample['Profile'],
-                    'Line_Item': lineup_sample['Line_Item'],
-                    'Budget Unit': lineup_sample['Budget Unit'],
-                    'Token': lineup_sample['Token'],
-                    'Body': lineup_sample['Body'],
-                    'Site': lineup_sample['Site'],
-                    'Lineup': lineup,
-                    'Institutions': lineup_sample['Institutions'],
-                    'DATE': forecast_date,
-                    'Actual': np.nan,
-                    'Plan': np.nan,
-                    'Forecast': forecast_value
-                }
-                forecast_results.append(forecast_row)
+                print(f"Generated {len(forecasts)} forecasts for lineup: {lineup}")
+                
+                # Create forecast data for each month of 2025
+                for i, forecast_value in enumerate(forecasts):
+                    forecast_date = datetime(2025, i+1, 1)
+                    
+                    forecast_row = {
+                        'Profile': lineup_sample['Profile'],
+                        'Line_Item': lineup_sample['Line_Item'],
+                        'Budget Unit': lineup_sample['Budget Unit'],
+                        'Token': lineup_sample['Token'],
+                        'Body': lineup_sample['Body'],
+                        'Site': lineup_sample['Site'],
+                        'Lineup': lineup,
+                        'Institutions': lineup_sample['Institutions'],
+                        'DATE': forecast_date,
+                        'Actual': np.nan,
+                        'Plan': np.nan,
+                        'Forecast': forecast_value
+                    }
+                    forecast_results.append(forecast_row)
+            except Exception as e:
+                print(f"Error processing lineup {lineup}: {e}")
+                continue
+        
+        if not forecast_results:
+            raise HTTPException(status_code=500, detail="No forecasts could be generated")
         
         # Create combined dataset
         forecast_df = pd.DataFrame(forecast_results)
@@ -189,11 +207,13 @@ def generate_forecasts():
         sample_with_cols['Plan'] = np.nan
         sample_with_cols['Forecast'] = np.nan
         
-        # Prepare plan data with additional columns
+        # Prepare plan data with additional columns  
         plan_with_cols = plan_data.copy()
         plan_with_cols['Actual'] = np.nan
         plan_with_cols['Forecast'] = np.nan
-        plan_with_cols = plan_with_cols.rename(columns={'Plan': 'Plan'})
+        # Make sure plan data has the right column name
+        if 'Plan' not in plan_with_cols.columns:
+            plan_with_cols['Plan'] = plan_with_cols.get('Plan', np.nan)
         
         # Combine all data
         combined_data = pd.concat([sample_with_cols, plan_with_cols, forecast_df], ignore_index=True)
@@ -207,6 +227,7 @@ def generate_forecasts():
         }
         
     except Exception as e:
+        print(f"Detailed error: {e}")
         raise HTTPException(status_code=500, detail=f"Error generating forecasts: {str(e)}")
 
 @app.get("/api/data/combined")
