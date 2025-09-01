@@ -211,6 +211,12 @@ class ForecastingAPITester:
             if success:
                 self.tests_passed += 1
                 print(f"✅ Passed - CSV file received ({len(response.content)} bytes)")
+                # Check if CSV contains Synthetic_Actual column
+                csv_content = response.content.decode('utf-8')
+                if 'Synthetic_Actual' in csv_content:
+                    print("   ✅ CSV contains Synthetic_Actual column")
+                else:
+                    print("   ⚠️  CSV missing Synthetic_Actual column")
             else:
                 print(f"❌ Failed - Invalid response or content type")
                 
@@ -219,6 +225,194 @@ class ForecastingAPITester:
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
             return False
+
+    def test_filtered_data(self):
+        """Test NEW filtered data endpoint with hierarchy parameters"""
+        if not self.forecast_generated:
+            print("⚠️  Skipping filtered data test - forecasts not generated")
+            return False, {}
+            
+        def validate_filtered_data(data):
+            required_keys = ['data', 'total_rows', 'filters_applied']
+            return all(key in data for key in required_keys)
+            
+        success, response = self.run_test(
+            "Filtered Data (NEW)",
+            "GET",
+            "api/data/filtered",
+            200,
+            check_response=validate_filtered_data
+        )
+        return success, response
+
+    def test_yearly_summary(self):
+        """Test NEW yearly summary endpoint for visualization"""
+        if not self.forecast_generated:
+            print("⚠️  Skipping yearly summary test - forecasts not generated")
+            return False, {}
+            
+        def validate_yearly_summary(data):
+            required_keys = ['yearly_data', 'available_years']
+            if not all(key in data for key in required_keys):
+                return False
+            
+            # Check if yearly_data has proper structure
+            if len(data['yearly_data']) > 0:
+                year_data = data['yearly_data'][0]
+                year_required = ['year', 'months']
+                if not all(key in year_data for key in year_required):
+                    return False
+                
+                # Check months structure
+                if len(year_data['months']) > 0:
+                    month_data = year_data['months'][0]
+                    month_required = ['month', 'month_name', 'actual', 'plan', 'forecast', 'synthetic_actual']
+                    return all(key in month_data for key in month_required)
+            
+            return True
+            
+        success, response = self.run_test(
+            "Yearly Summary (NEW)",
+            "GET",
+            "api/data/yearly-summary",
+            200,
+            check_response=validate_yearly_summary
+        )
+        return success, response
+
+    def test_hierarchy_options(self):
+        """Test NEW hierarchy options endpoint for filter dropdowns"""
+        if not self.forecast_generated:
+            print("⚠️  Skipping hierarchy options test - forecasts not generated")
+            return False, {}
+            
+        def validate_hierarchy_options(data):
+            required_keys = ['profiles', 'line_items', 'bodies', 'sites', 'lineups']
+            if not all(key in data for key in required_keys):
+                return False
+            
+            # Check if all are lists with content
+            return all(isinstance(data[key], list) and len(data[key]) > 0 for key in required_keys)
+            
+        success, response = self.run_test(
+            "Hierarchy Options (NEW)",
+            "GET",
+            "api/data/hierarchy-options",
+            200,
+            check_response=validate_hierarchy_options
+        )
+        return success, response
+
+    def test_filtered_data_with_params(self, profile=None, line_item=None, body=None, site=None, lineup=None):
+        """Test filtered data with specific hierarchy parameters"""
+        if not self.forecast_generated:
+            print("⚠️  Skipping filtered data with params test - forecasts not generated")
+            return False, {}
+        
+        params = []
+        if profile: params.append(f"profile={profile}")
+        if line_item: params.append(f"line_item={line_item}")
+        if body: params.append(f"body={body}")
+        if site: params.append(f"site={site}")
+        if lineup: params.append(f"lineup={lineup}")
+        
+        query_string = "&".join(params)
+        endpoint = f"api/data/filtered?{query_string}" if query_string else "api/data/filtered"
+        
+        def validate_filtered_data_with_params(data):
+            required_keys = ['data', 'total_rows', 'filters_applied']
+            if not all(key in data for key in required_keys):
+                return False
+            
+            # Validate filters_applied matches what we sent
+            filters = data['filters_applied']
+            if profile and filters.get('profile') != profile:
+                return False
+            if line_item and filters.get('line_item') != line_item:
+                return False
+            if body and filters.get('body') != body:
+                return False
+            if site and filters.get('site') != site:
+                return False
+            if lineup and filters.get('lineup') != lineup:
+                return False
+                
+            return True
+            
+        success, response = self.run_test(
+            f"Filtered Data with Params ({query_string})",
+            "GET",
+            endpoint,
+            200,
+            check_response=validate_filtered_data_with_params
+        )
+        return success, response
+
+    def test_synthetic_actuals_validation(self, combined_data):
+        """Validate that synthetic actuals are properly calculated (seasonal averages)"""
+        print(f"\n🔍 Validating Synthetic Actuals Calculation...")
+        
+        if not combined_data or 'data' not in combined_data:
+            print("❌ No combined data available for validation")
+            return False
+        
+        data = combined_data['data']
+        
+        # Group data by lineup and check synthetic actuals
+        lineup_data = {}
+        for item in data:
+            lineup = item.get('Lineup')
+            if not lineup:
+                continue
+                
+            if lineup not in lineup_data:
+                lineup_data[lineup] = {'historical': [], 'synthetic': []}
+            
+            date_str = item.get('DATE', '')
+            if date_str.startswith('2025') and item.get('Synthetic_Actual') is not None:
+                lineup_data[lineup]['synthetic'].append({
+                    'month': int(date_str.split('-')[1]),
+                    'value': item['Synthetic_Actual']
+                })
+            elif not date_str.startswith('2025') and item.get('Actual') is not None:
+                lineup_data[lineup]['historical'].append({
+                    'month': int(date_str.split('-')[1]),
+                    'value': item['Actual']
+                })
+        
+        validation_passed = True
+        for lineup, data_dict in lineup_data.items():
+            if not data_dict['synthetic'] or not data_dict['historical']:
+                continue
+                
+            print(f"   Checking lineup: {lineup}")
+            
+            # Check if synthetic actuals make sense (should be seasonal averages)
+            for synthetic_item in data_dict['synthetic']:
+                month = synthetic_item['month']
+                synthetic_value = synthetic_item['value']
+                
+                # Get historical values for the same month
+                historical_month_values = [
+                    h['value'] for h in data_dict['historical'] 
+                    if h['month'] == month
+                ]
+                
+                if historical_month_values:
+                    expected_avg = sum(historical_month_values) / len(historical_month_values)
+                    # Allow for small floating point differences
+                    if abs(synthetic_value - expected_avg) > 0.01:
+                        print(f"   ⚠️  Month {month}: Synthetic={synthetic_value:.2f}, Expected Avg={expected_avg:.2f}")
+                        validation_passed = False
+                    else:
+                        print(f"   ✅ Month {month}: Synthetic={synthetic_value:.2f} matches expected average")
+        
+        if validation_passed:
+            print("✅ Synthetic actuals validation passed")
+        else:
+            print("❌ Synthetic actuals validation failed")
+            
+        return validation_passed
 
 def main():
     # Setup
