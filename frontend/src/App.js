@@ -442,6 +442,26 @@ function App() {
   };
 
   const renderHierarchySelector = () => {
+    // Get lineups from hierarchyOptions if available, otherwise fallback to hierarchy parsing
+    let lineupOptions = [];
+    
+    if (hierarchyOptions.lineups && hierarchyOptions.lineups.length > 0) {
+      lineupOptions = hierarchyOptions.lineups;
+    } else {
+      // Fallback to parsing hierarchy structure
+      Object.keys(hierarchy).forEach(profile => {
+        Object.keys(hierarchy[profile]).forEach(lineItem => {
+          Object.keys(hierarchy[profile][lineItem]).forEach(site => {
+            hierarchy[profile][lineItem][site].forEach(lineup => {
+              if (!lineupOptions.includes(lineup)) {
+                lineupOptions.push(lineup);
+              }
+            });
+          });
+        });
+      });
+    }
+
     return (
       <div className="hierarchy-selector">
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -453,12 +473,17 @@ function App() {
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Choose a lineup...</option>
-          {hierarchyOptions.lineups && hierarchyOptions.lineups.map((lineup, index) => (
+          {lineupOptions.map((lineup, index) => (
             <option key={index} value={lineup}>
               {lineup}
             </option>
           ))}
         </select>
+        {lineupOptions.length === 0 && (
+          <p className="text-sm text-gray-500 mt-1">
+            Generate forecasts first to populate lineup options
+          </p>
+        )}
       </div>
     );
   };
