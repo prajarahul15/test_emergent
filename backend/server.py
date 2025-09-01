@@ -495,6 +495,8 @@ def get_yearly_summary():
                 'actual': float(month_data['Actual'].sum()) if not month_data['Actual'].isna().all() else None,
                 'plan': float(month_data['Plan'].sum()) if not month_data['Plan'].isna().all() else None,
                 'forecast': float(month_data['Forecast'].sum()) if not month_data['Forecast'].isna().all() else None,
+                'forecast_lower': float(month_data['Forecast_Lower'].sum()) if 'Forecast_Lower' in month_data.columns and not month_data['Forecast_Lower'].isna().all() else None,
+                'forecast_upper': float(month_data['Forecast_Upper'].sum()) if 'Forecast_Upper' in month_data.columns and not month_data['Forecast_Upper'].isna().all() else None,
                 'synthetic_actual': float(month_data['Synthetic_Actual'].sum()) if 'Synthetic_Actual' in month_data.columns and not month_data['Synthetic_Actual'].isna().all() else None
             }
             monthly_data.append(monthly_summary)
