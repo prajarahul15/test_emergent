@@ -261,6 +261,9 @@ def get_lineup_data(lineup: str):
     lineup_data = combined_data[combined_data['Lineup'] == lineup].copy()
     lineup_data['DATE'] = lineup_data['DATE'].dt.strftime('%Y-%m-%d')
     
+    # Replace NaN values with None for JSON serialization
+    lineup_data = lineup_data.replace({np.nan: None})
+    
     if len(lineup_data) == 0:
         raise HTTPException(status_code=404, detail=f"No data found for lineup: {lineup}")
     
