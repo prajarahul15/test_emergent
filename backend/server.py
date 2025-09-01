@@ -300,22 +300,110 @@ def get_lineup_data(lineup: str):
         "total_rows": len(lineup_data)
     }
 
-@app.get("/api/export/csv")
-def export_combined_csv():
-    """Export combined data as CSV"""
+@app.get("/api/data/filtered")
+def get_filtered_data(
+    profile: str = None,
+    line_item: str = None, 
+    body: str = None,
+    site: str = None,
+    lineup: str = None
+):
+    """Get data filtered by hierarchical levels"""
     global combined_data
     
     if combined_data is None:
         raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
     
-    # Create temporary file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as tmp_file:
-        combined_data.to_csv(tmp_file.name, index=False)
-        return FileResponse(
-            tmp_file.name,
-            media_type='text/csv',
-            filename='forecasting_results.csv'
-        )
+    filtered_data = combined_data.copy()
+    
+    # Apply filters
+    if profile:
+        filtered_data = filtered_data[filtered_data['Profile'] == profile]
+    if line_item:
+        filtered_data = filtered_data[filtered_data['Line_Item'] == line_item]
+    if body:
+        filtered_data = filtered_data[filtered_data['Body'] == body]
+    if site:
+        filtered_data = filtered_data[filtered_data['Site'] == site]
+    if lineup:
+        filtered_data = filtered_data[filtered_data['Lineup'] == lineup]
+    
+    # Convert to JSON-serializable format
+    filtered_data['DATE'] = filtered_data['DATE'].dt.strftime('%Y-%m-%d')
+    filtered_data = filtered_data.replace({np.nan: None})
+    
+    return {
+        "data": filtered_data.to_dict('records'),
+        "total_rows": len(filtered_data),
+        "filters_applied": {
+            "profile": profile,
+            "line_item": line_item,
+            "body": body,
+            "site": site,
+            "lineup": lineup
+        }
+    }
+
+@app.get("/api/data/yearly-summary")
+def get_yearly_summary():
+    """Get year-wise summary data for visualization"""
+    global combined_data
+    
+    if combined_data is None:
+        raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
+    
+    # Add year and month columns
+    data_with_year = combined_data.copy()
+    data_with_year['Year'] = data_with_year['DATE'].dt.year
+    data_with_year['Month'] = data_with_year['DATE'].dt.month
+    
+    # Group by year and month, sum all numeric values
+    yearly_summary = []
+    
+    for year in sorted(data_with_year['Year'].unique()):
+        year_data = data_with_year[data_with_year['Year'] == year]
+        monthly_data = []
+        
+        for month in range(1, 13):
+            month_data = year_data[year_data['Month'] == month]
+            
+            monthly_summary = {
+                'month': month,
+                'month_name': datetime(year, month, 1).strftime('%b'),
+                'actual': float(month_data['Actual'].sum()) if not month_data['Actual'].isna().all() else None,
+                'plan': float(month_data['Plan'].sum()) if not month_data['Plan'].isna().all() else None,
+                'forecast': float(month_data['Forecast'].sum()) if not month_data['Forecast'].isna().all() else None,
+                'synthetic_actual': float(month_data['Synthetic_Actual'].sum()) if 'Synthetic_Actual' in month_data.columns and not month_data['Synthetic_Actual'].isna().all() else None
+            }
+            monthly_data.append(monthly_summary)
+        
+        yearly_summary.append({
+            'year': int(year),
+            'months': monthly_data
+        })
+    
+    return {
+        "yearly_data": yearly_summary,
+        "available_years": sorted([int(year) for year in data_with_year['Year'].unique()])
+    }
+
+@app.get("/api/data/hierarchy-options")
+def get_hierarchy_options():
+    """Get available options for each hierarchy level"""
+    global combined_data
+    
+    if combined_data is None:
+        raise HTTPException(status_code=404, detail="Combined data not available. Generate forecasts first.")
+    
+    options = {
+        "profiles": sorted(combined_data['Profile'].dropna().unique().tolist()),
+        "line_items": sorted(combined_data['Line_Item'].dropna().unique().tolist()),
+        "bodies": sorted(combined_data['Body'].dropna().unique().tolist()),
+        "sites": sorted(combined_data['Site'].dropna().unique().tolist()),
+        "lineups": sorted(combined_data['Lineup'].dropna().unique().tolist())
+    }
+    
+    return options
 
 if __name__ == "__main__":
     import uvicorn
