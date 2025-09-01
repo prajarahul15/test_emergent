@@ -242,6 +242,9 @@ def get_combined_data():
     data_dict = combined_data.copy()
     data_dict['DATE'] = data_dict['DATE'].dt.strftime('%Y-%m-%d')
     
+    # Replace NaN values with None for JSON serialization
+    data_dict = data_dict.replace({np.nan: None})
+    
     return {
         "data": data_dict.to_dict('records'),
         "total_rows": len(data_dict)
