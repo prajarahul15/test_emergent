@@ -8,9 +8,12 @@ from statsmodels.tsa.arima.model import ARIMA
 import io
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 import json
 import tempfile
+from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
+import warnings
+warnings.filterwarnings('ignore')
 
 app = FastAPI(title="Forecasting Application API")
 
