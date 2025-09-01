@@ -336,7 +336,7 @@ function App() {
   };
 
   const renderMultiLineupSelector = () => {
-    if (!hierarchyOptions.lineups) return null;
+    if (!hierarchyOptions || !hierarchyOptions.lineups) return null;
 
     return (
       <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
@@ -346,7 +346,7 @@ function App() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {hierarchyOptions.lineups.map((lineup, index) => (
+          {(hierarchyOptions.lineups || []).map((lineup, index) => (
             <label key={index} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50">
               <input
                 type="checkbox"
